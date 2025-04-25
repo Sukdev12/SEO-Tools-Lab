@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Analyzer - Optimize Your Website's Search Engine Rankings</title>
+    <meta name="description" content="Free SEO analysis tool to check your website's SEO score, meta tags, keywords, and page speed. Generate comprehensive PDF reports to improve your search engine rankings.">
+    
+    <!-- Bootstrap CSS from Replit CDN -->
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Firebase App -->
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "{{ firebase_api_key }}",
+            authDomain: "{{ firebase_project_id }}.firebaseapp.com",
+            projectId: "{{ firebase_project_id }}",
+            storageBucket: "{{ firebase_project_id }}.appspot.com",
+            appId: "{{ firebase_app_id }}"
+        };
+
+        // Initialize Firebase with compat version
+        firebase.initializeApp(firebaseConfig);
+        
+        // Make Firebase available globally
+        window.firebaseApp = firebase.app();
+        window.firebaseAuth = firebase.auth();
+        window.firebaseDb = firebase.firestore();
+        window.GoogleAuthProvider = firebase.auth.GoogleAuthProvider;
+        
+        // Check auth state on page load
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                // User is signed in
+                document.querySelectorAll('.user-display').forEach(elem => {
+                    elem.textContent = user.displayName || user.email;
+                    elem.closest('.user-container').classList.remove('d-none');
+                });
+                document.querySelectorAll('.login-prompt').forEach(elem => {
+                    elem.classList.add('d-none');
+                });
+                
+                // Send user ID to server for session
+                fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: user.uid
+                    })
+                });
+                
+                // Show dashboard button
+                document.getElementById('dashboard-btn').classList.remove('d-none');
+            } else {
+                // User is signed out
+                document.querySelectorAll('.user-container').forEach(elem => {
+                    elem.classList.add('d-none');
+                });
+                document.querySelectorAll('.login-prompt').forEach(elem => {
+                    elem.classList.remove('d-none');
+                });
+                
+                // Hide dashboard button
+                document.getElementById('dashboard-btn').classList.add('d-none');
+            }
+        });
+    </script>
+    
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="me-2">
+                    <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 8L13.8584 10.1421M10.1414 13.8579L8 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M16 16L13.8584 13.8579M10.1414 10.1421L8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M7 12H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                SEO Analyzer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="dashboard-btn" href="/dashboard" class="d-none">My Reports</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <div class="login-prompt">
+                        <button class="btn btn-outline-light" onclick="loginWithGoogle()">
+                            <i class="fab fa-google me-2"></i>Sign In
+                        </button>
+                    </div>
+                    <div class="user-container d-none">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-circle me-2"></i>
+                                <span class="user-display">User</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="/dashboard">My Reports</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" onclick="logout()">Sign Out</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="bg-dark text-white py-5">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="display-4 fw-bold mb-3">Boost Your Website's SEO Performance</h1>
+                    <p class="lead mb-4">Free comprehensive SEO analysis tool to improve your search engine rankings. Check meta tags, keywords, loading speed, and more.</p>
+                    <form id="analyze-form" class="mb-4">
+                        <div class="input-group input-group-lg">
+                            <input type="url" id="url-input" class="form-control" placeholder="Enter website URL (e.g., example.com)" required>
+                            <button class="btn btn-primary" type="submit" id="analyze-btn">
+                                <i class="fas fa-search me-2"></i>Analyze
+                            </button>
+                        </div>
+                        <div class="form-text text-light mt-2">
+                            <i class="fas fa-lock me-1"></i> Your data is secure and never shared.
+                        </div>
+                    </form>
+                </div>
+                <div class="col-lg-6">
+                    <img src="https://images.unsplash.com/photo-1556155092-490a1ba16284" alt="SEO Analytics Dashboard" class="img-fluid rounded shadow-lg">
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- AdSense Display Ad -->
+    <div class="container my-4 text-center">
+        <!-- Display Ad -->
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="XXXXXXXXXX"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-5">Comprehensive SEO Analysis</h2>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm" onclick="scrollToAnalyzeForm()">
+                        <div class="card-body text-center">
+                            <div class="feature-icon bg-primary bg-gradient p-3 mb-3 rounded-circle mx-auto">
+                                <i class="fas fa-chart-line text-white"></i>
+                            </div>
+                            <h3 class="card-title h4">SEO Score Calculation</h3>
+                            <p class="card-text">Get a comprehensive score based on 40+ technical SEO factors analyzed on your website.</p>
+                            <button class="btn btn-sm btn-primary mt-2" onclick="event.stopPropagation(); scrollToAnalyzeForm();">Try it now</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm" onclick="showPdfFeatureInfo()">
+                        <div class="card-body text-center">
+                            <div class="feature-icon bg-success bg-gradient p-3 mb-3 rounded-circle mx-auto">
+                                <i class="fas fa-file-pdf text-white"></i>
+                            </div>
+                            <h3 class="card-title h4">PDF Reports</h3>
+                            <p class="card-text">Generate detailed PDF reports with actionable recommendations to improve your SEO.</p>
+                            <button class="btn btn-sm btn-success mt-2" onclick="event.stopPropagation(); showPdfFeatureInfo();">Learn more</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm" onclick="goToDashboard()">
+                        <div class="card-body text-center">
+                            <div class="feature-icon bg-info bg-gradient p-3 mb-3 rounded-circle mx-auto">
+                                <i class="fas fa-history text-white"></i>
+                            </div>
+                            <h3 class="card-title h4">Analysis History</h3>
+                            <p class="card-text">Save and track your SEO progress over time with our history feature.</p>
+                            <button class="btn btn-sm btn-info mt-2" onclick="event.stopPropagation(); goToDashboard();">View history</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Section (initially hidden) -->
+    <section id="results-section" class="py-5 bg-dark text-white d-none">
+        <div class="container">
+            <h2 class="text-center mb-4">SEO Analysis Results</h2>
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <div class="card border-0 shadow bg-dark text-white">
+                        <div class="card-body">
+                            <h3 class="card-title h4 text-center mb-3">SEO Score</h3>
+                            <div class="text-center mb-3">
+                                <div class="score-circle position-relative mx-auto">
+                                    <svg width="160" height="160" viewBox="0 0 160 160">
+                                        <circle cx="80" cy="80" r="70" fill="none" stroke="#2e2e2e" stroke-width="12"/>
+                                        <circle cx="80" cy="80" r="70" fill="none" stroke="#007bff" stroke-width="12" stroke-dasharray="439.8" stroke-dashoffset="439.8" id="score-circle"/>
+                                    </svg>
+                                    <div class="score-value position-absolute top-50 start-50 translate-middle display-4 fw-bold" id="score-value">0</div>
+                                </div>
+                            </div>
+                            <div class="text-center mb-3">
+                                <span class="badge bg-success" id="score-label">Loading...</span>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-primary" id="generate-pdf-btn">
+                                    <i class="fas fa-file-pdf me-2"></i>Generate PDF Report
+                                </button>
+                                <button class="btn btn-outline-light" id="save-history-btn">
+                                    <i class="fas fa-save me-2"></i>Save to History
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="card border-0 shadow bg-dark text-white">
+                        <div class="card-body">
+                            <ul class="nav nav-tabs mb-3" id="resultTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Overview</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="content-tab" data-bs-toggle="tab" data-bs-target="#content" type="button" role="tab" aria-controls="content" aria-selected="false">Content</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="technical-tab" data-bs-toggle="tab" data-bs-target="#technical" type="button" role="tab" aria-controls="technical" aria-selected="false">Technical</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="links-tab" data-bs-toggle="tab" data-bs-target="#links" type="button" role="tab" aria-controls="links" aria-selected="false">Links</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content" id="resultTabsContent">
+                                <!-- Overview Tab -->
+                                <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                                    <div class="mb-3" id="overview-url">
+                                        <strong>URL:</strong> <a href="#" target="_blank" id="result-url"></a>
+                                    </div>
+                                    <div class="alert alert-primary" id="recommendations-box">
+                                        <h5><i class="fas fa-lightbulb me-2"></i>Recommendations</h5>
+                                        <ul id="recommendations-list">
+                                            <li>Loading recommendations...</li>
+                                        </ul>
+                                    </div>
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-sm-6">
+                                            <div class="card border-0 shadow-sm h-100 bg-dark">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-heading me-2"></i>Title</h5>
+                                                    <p class="card-text" id="result-title">Loading...</p>
+                                                    <div class="progress mb-2">
+                                                        <div id="title-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                    <small id="title-length">Length: 0 characters</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <div class="card border-0 shadow-sm h-100 bg-dark">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-align-left me-2"></i>Description</h5>
+                                                    <p class="card-text" id="result-description">Loading...</p>
+                                                    <div class="progress mb-2">
+                                                        <div id="description-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                    <small id="description-length">Length: 0 characters</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm bg-dark">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-mobile-alt me-2"></i>Mobile Friendly</h5>
+                                                    <p class="card-text" id="result-mobile">Checking...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-tachometer-alt me-2"></i>Page Speed</h5>
+                                                    <p class="card-text" id="result-speed">Checking...</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Content Tab -->
+                                <div class="tab-pane fade" id="content" role="tabpanel" aria-labelledby="content-tab">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-heading me-2"></i>Headings</h5>
+                                                    <div id="result-headings">Loading...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-file-alt me-2"></i>Content Analysis</h5>
+                                                    <p><strong>Word Count:</strong> <span id="result-wordcount">0</span></p>
+                                                    <div class="progress mb-3">
+                                                        <div id="wordcount-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                    <p><small>Recommended: 800+ words for comprehensive content</small></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card border-0 shadow-sm mt-3">
+                                        <div class="card-body">
+                                            <h5 class="card-title"><i class="fas fa-key me-2"></i>Keyword Density</h5>
+                                            <div id="keyword-chart-container">
+                                                <canvas id="keywordChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card border-0 shadow-sm mt-3">
+                                        <div class="card-body">
+                                            <h5 class="card-title"><i class="fas fa-image me-2"></i>Images</h5>
+                                            <p><strong>Total Images:</strong> <span id="result-images-count">0</span></p>
+                                            <p><strong>Images with Alt Text:</strong> <span id="result-images-alt">0</span></p>
+                                            <div class="progress mb-3">
+                                                <div id="images-progress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Technical Tab -->
+                                <div class="tab-pane fade" id="technical" role="tabpanel" aria-labelledby="technical-tab">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-server me-2"></i>Server Info</h5>
+                                                    <p><strong>Domain:</strong> <span id="result-domain">Loading...</span></p>
+                                                    <p><strong>IP Address:</strong> <span id="result-ip">Loading...</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-tachometer-alt me-2"></i>Performance</h5>
+                                                    <p><strong>Load Time:</strong> <span id="result-loadtime">0</span> seconds</p>
+                                                    <p><strong>Page Size:</strong> <span id="result-pagesize">0</span> KB</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row g-3 mt-2">
+                                        <div class="col-12">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-cog me-2"></i>SEO Elements</h5>
+                                                    <div class="table-responsive">
+                                                        <table class="table">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td>Canonical URL</td>
+                                                                    <td id="result-canonical">Checking...</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td>Robots Meta Tag</td>
+                                                                    <td id="result-robots">Checking...</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td>Schema.org Markup</td>
+                                                                    <td id="result-schema">Checking...</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td>Open Graph Tags</td>
+                                                                    <td id="result-opengraph">Checking...</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td>Twitter Cards</td>
+                                                                    <td id="result-twitter">Checking...</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Links Tab -->
+                                <div class="tab-pane fade" id="links" role="tabpanel" aria-labelledby="links-tab">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-link me-2"></i>Internal Links</h5>
+                                                    <p class="fw-bold fs-4" id="result-internal-count">0</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h5 class="card-title"><i class="fas fa-external-link-alt me-2"></i>External Links</h5>
+                                                    <p class="fw-bold fs-4" id="result-external-count">0</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card border-0 shadow-sm mt-3">
+                                        <div class="card-body">
+                                            <h5 class="card-title"><i class="fas fa-chart-pie me-2"></i>Links Distribution</h5>
+                                            <div style="height: 250px">
+                                                <canvas id="linksChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Loading Spinner -->
+    <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-none">
+        <div class="d-flex justify-content-center align-items-center h-100 bg-dark bg-opacity-75">
+            <div class="card p-4 text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5 id="loading-message">Analyzing your website...</h5>
+                <p id="loading-detail" class="text-muted">This may take a few moments</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tools Section -->
+    <section class="py-5 bg-dark text-white">
+        <div class="container">
+            <h2 class="text-center mb-5">Why Choose Our SEO Analyzer</h2>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="d-flex">
+                        <div class="feature-icon bg-primary p-3 me-3 rounded">
+                            <i class="fas fa-check text-white"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3 class="h5">Comprehensive Analysis</h3>
+                            <p>We check over 40 SEO factors including meta tags, headings, content, links, and more.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="d-flex">
+                        <div class="feature-icon bg-primary p-3 me-3 rounded">
+                            <i class="fas fa-check text-white"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3 class="h5">Actionable Recommendations</h3>
+                            <p>Get specific recommendations to improve your website's SEO performance.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="d-flex">
+                        <div class="feature-icon bg-primary p-3 me-3 rounded">
+                            <i class="fas fa-check text-white"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3 class="h5">PDF Reports</h3>
+                            <p>Generate professional PDF reports to share with clients or team members.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="d-flex">
+                        <div class="feature-icon bg-primary p-3 me-3 rounded">
+                            <i class="fas fa-check text-white"></i>
+                        </div>
+                        <div class="feature-text">
+                            <h3 class="h5">History Tracking</h3>
+                            <p>Track your SEO improvements over time with our history feature.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SEO Tips Section with Image -->
+    <section class="py-5 bg-dark text-white">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6 order-lg-2 mb-4 mb-lg-0">
+                    <img src="https://images.unsplash.com/photo-1553389525308-e4ab5a0ea01f" alt="SEO Optimization Graphics" class="img-fluid rounded shadow">
+                </div>
+                <div class="col-lg-6 order-lg-1">
+                    <h2 class="mb-4">Top SEO Tips for Better Rankings</h2>
+                    <div class="accordion" id="seoTipsAccordion">
+                        <div class="accordion-item border-0 shadow-sm mb-3">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    Optimize Your Meta Tags
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#seoTipsAccordion">
+                                <div class="accordion-body">
+                                    Create compelling title tags (50-60 characters) and meta descriptions (120-160 characters) that include your primary keywords and encourage clicks.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item border-0 shadow-sm mb-3">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    Create Quality Content
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#seoTipsAccordion">
+                                <div class="accordion-body">
+                                    Develop comprehensive, valuable content (800+ words) that addresses your audience's needs. Use proper heading structure (H1, H2, H3) and incorporate relevant keywords naturally.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item border-0 shadow-sm mb-3">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    Improve Page Speed
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#seoTipsAccordion">
+                                <div class="accordion-body">
+                                    Optimize images, leverage browser caching, minify CSS/JavaScript, and use a content delivery network (CDN) to improve your page loading speed.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item border-0 shadow-sm">
+                            <h2 class="accordion-header" id="headingFour">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                                    Build Quality Backlinks
+                                </button>
+                            </h2>
+                            <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#seoTipsAccordion">
+                                <div class="accordion-body">
+                                    Create link-worthy content and promote it to earn high-quality backlinks from reputable websites in your industry.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Affiliate Section -->
+    <section class="py-5 bg-dark text-white">
+        <div class="container">
+            <h2 class="text-center mb-5">Recommended SEO Tools</h2>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow bg-dark">
+                        <div class="card-body text-center text-white">
+                            <h3 class="card-title h5 mb-3">Ahrefs</h3>
+                            <p class="card-text">Professional SEO toolset for backlink analysis, keyword research, competitor analysis, and more.</p>
+                            <a href="https://ahrefs.com/" target="_blank" rel="nofollow" class="btn btn-primary">
+                                <i class="fas fa-external-link-alt me-2"></i>Try Ahrefs
+                            </a>
+                            <div class="text-light mt-2">
+                                <small>7-day trial for $7</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow bg-dark">
+                        <div class="card-body text-center text-white">
+                            <h3 class="card-title h5 mb-3">SEMrush</h3>
+                            <p class="card-text">All-in-one marketing toolkit for SEO, PPC, content, social media, and competitive research.</p>
+                            <a href="https://www.semrush.com/" target="_blank" rel="nofollow" class="btn btn-primary">
+                                <i class="fas fa-external-link-alt me-2"></i>Try SEMrush
+                            </a>
+                            <div class="text-light mt-2">
+                                <small>7-day free trial available</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-4 bg-dark text-white">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>SEO Analyzer</h5>
+                    <p>A free tool to analyze and improve your website's SEO performance.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/" class="text-white">Home</a></li>
+                        <li><a href="/dashboard" class="text-white">Dashboard</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Resources</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="https://ahrefs.com/blog/" target="_blank" rel="nofollow" class="text-white">Ahrefs Blog</a></li>
+                        <li><a href="https://www.semrush.com/blog/" target="_blank" rel="nofollow" class="text-white">SEMrush Blog</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p>&copy; 2023 SEO Analyzer. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+    
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="/static/js/seo-analyzer.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/pdf-generator.js"></script>
+    
+    <script>
+        // Feature card interactions
+        function showPdfFeatureInfo() {
+            // Show a modal or alert explaining the PDF feature
+            alert("PDF Reports Feature: Once you analyze a website, you can generate a detailed PDF report with all SEO metrics and recommendations that you can download, save, or share with clients.");
+        }
+        
+        function scrollToAnalyzeForm() {
+            // Scroll to the analyze form
+            document.getElementById('analyze-form').scrollIntoView({ behavior: 'smooth' });
+            // Set focus on the URL input field
+            setTimeout(() => {
+                document.getElementById('url-input').focus();
+            }, 800);
+        }
+        
+        function goToDashboard() {
+            // Navigate to the dashboard page
+            window.location.href = '/dashboard';
+        }
+        
+        // Add cursor pointer to all cards for better UX
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.style.cursor = 'pointer';
+            });
+        });
+    
+        // Firebase Authentication
+        function loginWithGoogle() {
+            const auth = window.firebaseAuth;
+            const provider = new firebase.auth.GoogleAuthProvider();
+            
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    // User signed in
+                    console.log("User signed in", result.user);
+                }).catch((error) => {
+                    // Handle errors
+                    console.error("Error signing in", error);
+                    alert("Error signing in: " + error.message);
+                });
+        }
+        
+        function logout() {
+            const auth = window.firebaseAuth;
+            auth.signOut()
+                .then(() => {
+                    // User signed out
+                    console.log("User signed out");
+                    // Call server logout endpoint
+                    fetch('/api/logout', {
+                        method: 'POST'
+                    });
+                    // Redirect to home page
+                    window.location.href = '/';
+                }).catch((error) => {
+                    // Handle errors
+                    console.error("Error signing out", error);
+                });
+        }
+    </script>
+</body>
+</html>
